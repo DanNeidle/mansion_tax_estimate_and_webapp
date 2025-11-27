@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+
+<!-- # © Tax Policy Associates 2025 -->
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Constituency council tax bands</title>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://taxpolicy.org.uk/wp-content/assets/logo_emblem_on_blue.png" rel="apple-touch-icon" sizes="180x180"/>
+<link href="https://taxpolicy.org.uk/wp-content/assets/logo_emblem_on_blue.png" rel="shortcut icon" type="image/png"/>
+<!-- Leaflet CSS -->
+<link crossorigin="" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" rel="stylesheet">
+<link href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" rel="stylesheet">
+<link href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" rel="stylesheet">
+<style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f6fb;
+    }
+
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(245, 246, 251, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1500;
+      transition: opacity 0.3s ease;
+    }
+
+    .loading-overlay--hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .loading-box {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 24px 32px;
+      box-shadow: 0 12px 32px rgba(17, 51, 175, 0.22);
+      max-width: 320px;
+      width: calc(100% - 40px);
+      text-align: center;
+      border: 1px solid rgba(17,51,175,0.12);
+    }
+
+    .loading-box p {
+      margin: 0 0 16px;
+      font-weight: 600;
+      color: #1133AF;
+      letter-spacing: 0.02em;
+    }
+
+    .loading-progress {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(17, 51, 175, 0.1);
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(17,51,175,0.08);
+    }
+
+    .loading-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #1133AF, #0E9C8F);
+      border-radius: inherit;
+      transition: width 0.35s ease;
+    }
+
+    #map {
+      width: 100%;
+      height: 100vh;
+    }
+
+    .panel-stack {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 16px;
+      z-index: 1100;
+    }
+
+    .ui-panel {
+      position: relative;
+      width: min(320px, calc(100vw - 40px));
+      background: rgba(255, 255, 255, 0.94);
+      border-radius: 14px;
+      box-shadow: 0 3px 16px rgba(17,51,175,0.25);
+      padding: 14px;
+      font-size: 14px;
+      box-sizing: border-box;
+      border: 1px solid rgba(17,51,175,0.08);
+      backdrop-filter: blur(6px);
+      overflow: hidden;
+    }
+
+    .ui-panel.dragging {
+      cursor: grabbing;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    }
+
+    .panel-header {
+      font-weight: 600;
+      margin-bottom: 10px;
+      cursor: grab;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      background: #1133AF;
+      color: #fff;
+      padding: 8px 10px;
+      border-radius: 8px;
+      gap: 8px;
+    }
+
+    .ui-panel .panel-header {
+      margin: -14px -14px 12px;
+      padding: 10px 14px;
+      border-radius: 14px 14px 0 0;
+      border-bottom: 1px solid rgba(255,255,255,0.35);
+    }
+
+    .panel-title {
+      flex: 1;
+      font-weight: 600;
+      font-size: 15px;
+      letter-spacing: 0.01em;
+    }
+
+    .panel-toggle {
+      border: none;
+      background: rgba(255,255,255,0.25);
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 12px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      touch-action: manipulation;
+    }
+
+    .panel-toggle:hover {
+      background: rgba(255,255,255,0.4);
+    }
+
+    .panel-toggle-icon {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      transition: transform 0.2s ease;
+    }
+
+    .panel-toggle[aria-expanded="false"] .panel-toggle-icon {
+      transform: rotate(180deg);
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+    }
+
+    .panel-body {
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .panel-collapsed {
+      padding-bottom: 12px;
+    }
+
+    .panel-collapsed .panel-header {
+      margin-bottom: 0 !important;
+      border-radius: 14px;
+    }
+
+    .panel-collapsed .panel-body {
+      display: none;
+    }
+
+    .ui-panel section + section {
+      margin-top: 12px;
+      border-top: 1px solid #e2e2e2;
+      padding-top: 12px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .ui-panel label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .ui-panel select {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #c4c4c4;
+      border-radius: 4px;
+      font-size: 14px;
+      background: #fff;
+      box-sizing: border-box;
+    }
+
+    .search-input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .search-input-wrapper input[type="text"] {
+      width: 100%;
+      padding: 6px 30px 6px 8px;
+      border: 1px solid #c4c4c4;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+
+    .search-clear-btn {
+      position: absolute;
+      right: 6px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      color: #666;
+      padding: 0;
+      display: none;
+    }
+
+    .search-clear-btn.visible {
+      display: block;
+    }
+
+    .search-results {
+      list-style: none;
+      margin: 6px 0 0;
+      padding: 0;
+      max-height: 220px;
+      overflow-y: auto;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      display: none;
+      background: #fff;
+    }
+
+    .search-results.visible {
+      display: block;
+    }
+
+    .search-results li {
+      padding: 6px 8px;
+      cursor: pointer;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .search-results li:last-child {
+      border-bottom: none;
+    }
+
+    .search-results li:hover,
+    .search-results li:focus,
+    .search-results li.active {
+      background: #f5f7fb;
+    }
+
+    .info-panel {
+      position: relative;
+      width: min(360px, calc(100vw - 40px));
+      background: rgba(255, 255, 255, 0.94);
+      border-radius: 14px;
+      box-shadow: 0 3px 16px rgba(17,51,175,0.25);
+      padding: 14px;
+      font-size: 14px;
+      z-index: 1050;
+      border: 1px solid rgba(17,51,175,0.08);
+      backdrop-filter: blur(6px);
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+
+    .info-panel.dragging {
+      box-shadow: 0 6px 20px rgba(17,51,175,0.35);
+    }
+
+    .info-panel .panel-header {
+      margin: -14px -14px 12px;
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.35);
+      border-radius: 14px 14px 0 0;
+    }
+
+    .info-content {
+      padding: 0;
+      font: 12px/14px 'Poppins', sans-serif;
+    }
+
+    .info-section {
+      margin-top: 12px;
+    }
+
+    .info-section:first-child {
+      margin-top: 0;
+    }
+
+    .info-section h5 {
+      margin: 0 0 6px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #7a7a7a;
+    }
+    .constituency-summary {
+      margin-top: 18px;
+    }
+    .constituency-heading {
+      margin: 0 0 6px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #1133AF;
+      letter-spacing: 0.01em;
+    }
+
+    .info-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stat-line {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #333;
+    }
+
+    .stat-line span:last-child {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .stat-bar {
+      position: relative;
+      padding-bottom: 20px;
+    }
+
+    .stat-bar-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #1e1e1e;
+    }
+
+    .stat-bar-axis {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #8a8a8a;
+      margin: 4px 0 2px;
+    }
+
+    .stat-bar-track {
+      position: relative;
+      height: 12px;
+      border-radius: 999px;
+      background: #e9edff;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+      overflow: visible;
+    }
+
+    .stat-bar-track::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--stat-color, #1133AF) 0%, var(--stat-color, #1133AF) 100%);
+      opacity: 0.22;
+    }
+
+    .stat-bar-marker {
+      position: absolute;
+      top: 50%;
+      left: var(--stat-marker, 0%);
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      background: #fff;
+      border: 3px solid var(--stat-color, #1133AF);
+      transform: translate(-50%, -50%);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+    }
+
+    .stat-bar-value {
+      position: absolute;
+      left: var(--stat-marker, 0%);
+      bottom: 0;
+      transform: translate(-50%, 6px);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--stat-color, #1133AF);
+      background: rgba(255,255,255,0.95);
+      padding: 2px 10px;
+      border-radius: 999px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+      white-space: nowrap;
+    }
+
+    .stat-bar--empty .stat-bar-track {
+      background: rgba(0,0,0,0.05);
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05);
+    }
+
+    .stat-bar--empty .stat-bar-track::before,
+    .stat-bar--empty .stat-bar-marker,
+    .stat-bar--empty .stat-bar-value {
+      display: none;
+    }
+
+    .stat-bar-empty {
+      font-size: 12px;
+      color: #9d9d9d;
+      margin-top: 6px;
+    }
+
+
+    .stacked-bar-note {
+      font-size: 11px;
+      color: #888;
+    }
+
+    .bar-chart-container {
+      position: relative;
+      padding-left: 0;
+      margin: 40px auto 0;
+      width: 100%;
+      max-width: 540px;
+    }
+
+    .bar-chart {
+      position: relative;
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      height: var(--chart-height, 100px);
+      padding-bottom: 14px;
+      --bar-area-height: 92px;
+      --bar-track-height: 72px;
+      width: 100%;
+    }
+
+    /* 1. Adjust the container to make room for labels at bottom */
+.bar-chart {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  /* Increase bottom padding to hold the labels below the line */
+  padding-bottom: 34px; 
+  height: var(--chart-height, 120px); /* Slightly taller to fit floating numbers */
+  width: 100%;
+}
+
+/* 2. The Axis Line */
+.bar-chart::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 34px; /* Matches padding-bottom exactly */
+  border-bottom: 1px solid #c4c4c4; /* Slightly darker for visibility */
+  z-index: 0;
+}
+
+/* 3. The Track (Grey background) */
+.bar-track {
+  position: relative;
+  width: 100%;
+  height: var(--bar-track-height, 72px);
+  /* Remove border-radius and overflow so numbers can pop out */
+  border-radius: 4px 4px 0 0;
+  background: transparent;
+  overflow: visible; 
+  z-index: 1; /* Sits on top of the axis line */
+}
+
+/* 4. The Colored Bar */
+.bar-fill {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 0;
+  background: var(--bar-color, #3182bd);
+  border-radius: 4px 4px 0 0; /* Radius moves here */
+  animation: grow-bar 0.9s ease-out forwards;
+  animation-delay: var(--bar-delay, 0s);
+}
+
+/* 5. The Floating Number */
+.bar-value {
+  position: absolute;
+  bottom: 100%; /* Push to very top of the colored bar */
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 4px; /* Small gap between bar and number */
+  
+  font-weight: 600;
+  font-size: 11px;
+  color: #222;
+  white-space: nowrap;
+  
+  /* Optional: Add a text shadow or bg for readability if bars overlap */
+  text-shadow: 0 1px 0 rgba(255,255,255,0.8); 
+}
+
+/* 6. The Label (Below the axis) */
+.bar-label {
+  position: absolute;
+  top: 100%;
+  left: 50%; /* Center relative to parent */
+  transform: translateX(-50%); /* Center align */
+  width: 110%; /* Allow it to be slightly wider than the bar itself */
+  margin-top: 6px;
+  
+  /* Typography */
+  font-size: 11px; /* Base size */
+  line-height: 1.1; /* Tight line height for wrapping */
+  text-align: center;
+  color: #666;
+  
+  /* Wrapping Logic */
+  white-space: normal;       /* Allow wrapping */
+  overflow-wrap: break-word; /* Break long words if necessary */
+  word-break: break-word;    /* Ensure it breaks nicely */
+}
+
+/* Make it even bigger on Desktop */
+@media (min-width: 641px) {
+  .bar-label {
+    font-size: 12px;
+  }
+}
+
+/* 7. Ensure your width fix from the previous step is here */
+.bar {
+  position: relative; /* Context for the label absolute positioning */
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 100%; /* Your width fix */
+}
+
+    .bar-chart.compact {
+      --chart-height: 86px;
+      --bar-area-height: 80px;
+      --bar-track-height: 62px;
+    }
+
+
+
+    .bar-chart-ticks {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 16px;
+      width: 32px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: flex-start;
+      font-size: 10px;
+      color: #888;
+    }
+
+    .bar-chart-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      height: var(--bar-area-height, 92px);
+      flex: 1;
+      min-width: 0;
+      width: 80%;
+      margin: 0 auto;
+    }
+
+    .bar {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      max-width: 80px;
+    }
+
+
+
+    .bar-fill {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 100%;
+      height: 0;
+      background: var(--bar-color, #3182bd);
+      border-radius: 6px 6px 0 0;
+      animation: grow-bar 0.9s ease-out forwards;
+      animation-delay: var(--bar-delay, 0s);
+    }
+
+    .bar-label {
+      font-size: 10px;
+      text-align: center;
+      color: #666;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 26px;
+      line-height: 1.2;
+      width: 100%;
+      padding: 0 2px;
+    }
+
+    @keyframes grow-bar {
+      from { height: 0; }
+      to { height: var(--bar-height, 0%); }
+    }
+
+    .mobile-logo {
+      display: none; /* Hidden by default to prevent FOUC */
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1200;
+      background: rgba(255,255,255,0.9);
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      padding: 5px;
+      border: 1px solid rgba(17,51,175,0.08);
+    }
+
+    .mobile-logo img {
+      display: block;
+      height: 40px;
+      width: 40px;
+      object-fit: contain;
+    }
+
+    .brand-banner {
+      display: none; /* Hidden by default to prevent FOUC */
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      align-items: center;
+      gap: 16px;
+      background: rgba(255,255,255,0.94);
+      padding: 10px 16px;
+      border-radius: 999px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 1200;
+      text-decoration: none;
+      border: 1px solid rgba(17,51,175,0.08);
+      backdrop-filter: blur(8px);
+    }
+
+    .brand-banner img {
+      height: 60px;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+
+    .brand-banner h1 {
+      margin: 0;
+      font-size: 20px;
+      color: #1133AF;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .legend {
+      line-height: 18px;
+      color: #555;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 6px 8px;
+      border-radius: 4px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    }
+
+    .legend i {
+      width: 16px;
+      height: 16px;
+      float: left;
+      margin-right: 6px;
+      opacity: 0.8;
+    }
+    .postcode-circle-marker-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .postcode-circle-marker {
+      display: block;
+      border-radius: 50%;
+      border: none;
+      background: rgba(17,51,175,0.45);
+      box-shadow: 0 0 12px rgba(17,51,175,0.35);
+    }
+    .postcode-cluster-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .postcode-cluster {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(17,51,175,0.45);
+      box-shadow: 0 0 18px rgba(17,51,175,0.4);
+    }
+    .postcode-cluster-count {
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.85rem;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+    }
+
+    /* Base state: Normal map */
+    .leaflet-tile-pane {
+      transition: filter 0.4s ease; /* Smooth fade effect */
+      filter: none;
+    }
+
+    /* Dimmed state: Only applied when the class is present */
+    .map-dimmed .leaflet-tile-pane {
+      filter: grayscale(0.7) brightness(0.75);
+    }
+
+    @media (max-width: 640px) {
+      .panel-stack {
+        top: 8px;
+        right: 8px;
+        gap: 10px;
+      }
+
+      .ui-panel,
+      .info-panel {
+        width: clamp(170px, 50vw, 260px);
+        padding: 10px;
+      }
+
+      .ui-panel .panel-header,
+      .info-panel .panel-header {
+        margin: -10px -10px 8px;
+        padding: 8px 12px;
+      }
+
+      .info-content {
+        padding: 0;
+      }
+
+      .panel-title {
+        font-size: 13px;
+      }
+
+      .panel-toggle {
+        font-size: 10px;
+        padding: 3px 10px;
+      }
+
+      .brand-banner {
+        display: none !important;
+      }
+
+      .mobile-logo {
+        display: block;
+      }
+
+      .stat-bars {
+        gap: 12px; /* Increased space between bars */
+      }
+      .stat-bar {
+        padding-bottom: 0;
+      }
+      .stat-bar-axis {
+        display: none;
+      }
+      .stat-bar > .stat-bar-value {
+        display: none;
+      }
+      .stat-bar-track .stat-bar-value {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 14px;
+        padding: 0 6px;
+        font-size: 10px;
+        border-radius: 4px;
+        background: rgba(255,255,255,0.9);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+        white-space: nowrap;
+        color: #222;
+        font-weight: 600;
+        backdrop-filter: blur(4px);
+        z-index: 10;
+        will-change: transform;
+        box-sizing: border-box;
+      }
+      .stat-bar-track .stat-bar-value.value-on-left {
+        right: calc(100% - var(--stat-marker, 0%) + 12px); /* Increased gap */
+        left: auto; /* Reset other direction */
+      }
+      .stat-bar-track .stat-bar-value.value-on-right {
+        left: calc(var(--stat-marker, 0%) + 12px); /* Increased gap */
+        right: auto; /* Reset other direction */
+      }
+
+      /* Squeeze council tax bars */
+      .bar-chart-bars {
+        gap: 4px;
+        width: 100%;
+      }
+      .bar-chart-container {
+        width: 100%;
+      }
+      .bar {
+        max-width: 32px;
+        font-size: 10px;
+      }
+      .bar-label {
+        min-height: 20px;
+        font-size: 9px;
+      }
+      .bar-chart-container {
+        margin-top: 24px;
+      }
+      .bar-chart.compact {
+        --chart-height: 70px;
+        --bar-area-height: 64px;
+        --bar-track-height: 46px;
+      }
+    }
+  </style>
+</link></link></link></head>
+<body>
+<div aria-live="polite" class="loading-overlay" id="loading-overlay" role="status">
+<div class="loading-box">
+<p>Loading map data…</p>
+<div aria-valuemax="100" aria-valuemin="0" aria-valuenow="0" class="loading-progress" id="loading-progress" role="progressbar">
+<div class="loading-progress-bar" id="loading-progress-bar"></div>
+</div>
+</div>
+</div>
+<a class="mobile-logo" href="https://taxpolicy.org.uk/council-tax-and-house-price-data/" rel="noopener" target="_blank">
+<img alt="Tax Policy Associates logo" src="https://taxpolicy.org.uk/wp-content/assets/logo_emblem_on_blue.png"/>
+</a>
+<div id="map"></div>
+<a class="brand-banner" href="https://taxpolicy.org.uk/council-tax-and-house-price-data/" id="brand-banner" rel="noopener" target="_blank">
+<img alt="Tax Policy Associates logo" src="https://taxpolicy.org.uk/wp-content/assets/logo_full_white_on_blue.jpg"/>
+<h1>Council tax and house price data</h1>
+</a>
+<div class="panel-stack" id="panel-stack">
+<div class="ui-panel" id="ui-panel">
+<div class="panel-header" id="ui-panel-handle">
+<span class="panel-title">Map controls</span>
+<button aria-expanded="true" aria-label="Minimise panel" class="panel-toggle" data-panel-key="controls" type="button">
+<span class="sr-only">Minimise panel</span>
+<svg aria-hidden="true" class="panel-toggle-icon" focusable="false" viewbox="0 0 24 24">
+<path d="M6 9l6 6 6-6"></path>
+</svg>
+</button>
+</div>
+<div class="panel-body">
+<section>
+<label for="dataset-select">Data view</label>
+<select id="dataset-select">
+<option selected="" value="mansion_tax_postcodes">Mansion tax postcodes</option>
+<option value="mansion_tax">Mansion tax constituencies</option>
+<option value="council_tax">Council tax bands</option>
+<option value="house_price">Median house price (2025)</option>
+<option value="house_price_change">House price change 1995-2025</option>
+</select>
+</section>
+<section id="metric-section">
+<label for="metric-select" id="metric-label">Council tax band</label>
+<select id="metric-select">
+<option selected="" value="band_A">Band A</option>
+<option value="band_B">Band B</option>
+<option value="band_C">Band C</option>
+<option value="band_D">Band D</option>
+<option value="band_E">Band E</option>
+<option value="band_F">Band F</option>
+<option value="band_G">Band G</option>
+<option value="band_H">Band H</option>
+<option value="band_I">Band I</option>
+</select>
+</section>
+<section>
+<label for="constituency-search">Search constituency</label>
+<div class="search-input-wrapper">
+<input autocomplete="off" id="constituency-search" placeholder="Start typing…" type="text"/>
+<button aria-label="Clear search" class="search-clear-btn" id="search-clear">×</button>
+</div>
+<ul class="search-results" id="search-results"></ul>
+</section>
+<section>
+<div class="legend" id="legend-panel"></div>
+</section>
+</div>
+</div>
+<div class="info-panel" id="info-panel-panel">
+<div class="panel-header" id="info-panel-handle">
+<span class="panel-title">Constituency info</span>
+<button aria-expanded="true" aria-label="Minimise panel" class="panel-toggle" data-panel-key="info" type="button">
+<span class="sr-only">Minimise panel</span>
+<svg aria-hidden="true" class="panel-toggle-icon" focusable="false" viewbox="0 0 24 24">
+<path d="M6 9l6 6 6-6"></path>
+</svg>
+</button>
+</div>
+<div class="panel-body">
+<div class="info-content" id="info-panel-content"></div>
+</div>
+</div>
+</div>
+<!-- Leaflet JS -->
+<script crossorigin="" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
