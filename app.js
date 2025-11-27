@@ -557,10 +557,28 @@ const map = L.map("map", {
   zoomControl: false,
 }).fitBounds(ENGLAND_BOUNDS);
 
+// 1. Setup the tile layer (Clean attribution only)
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 18,
-  attribution: "© OpenStreetMap contributors"
+  attribution: '© OpenStreetMap contributors' // Only the standard credits here
 }).addTo(map);
+
+// 2. Move standard Leaflet attribution to Bottom-Left
+map.attributionControl.setPosition('bottomleft');
+
+// 3. Create a custom control for Land Registry (Bottom-Right)
+const LandRegistryControl = L.Control.extend({
+  options: {
+    position: 'bottomright'
+  },
+  onAdd: function(map) {
+    const div = L.DomUtil.create('div', 'leaflet-control-attribution leaflet-control custom-legal-box');
+    div.innerHTML = '<span class="legal-text">Contains HM Land Registry data © Crown copyright and database right 2025.</span>';
+    return div;
+  }
+});
+map.addControl(new LandRegistryControl());
+
 
 function getDatasetLabel() {
   if (selectedDataset === "mansion_tax") {

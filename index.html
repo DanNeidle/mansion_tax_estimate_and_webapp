@@ -876,6 +876,56 @@
         --bar-area-height: 64px;
         --bar-track-height: 46px;
       }
+
+      /* --- SHARED STYLES (Both Boxes) --- */
+.leaflet-container .leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.4) !important; /* Transparent background */
+  backdrop-filter: blur(1px);
+  padding: 0 5px !important;
+  box-shadow: none !important;
+  border-radius: 4px;
+  
+  /* Text Styling */
+  font-size: 10px !important;
+  line-height: 1.2 !important;
+  color: #666 !important;
+}
+
+/* Links inside the boxes */
+.leaflet-container .leaflet-control-attribution a {
+  color: #555 !important;
+  text-decoration: none !important;
+}
+
+/* --- SPECIFIC POSITIONING --- */
+
+/* Bottom-Left Box (Leaflet/OSM) - Align Left */
+.leaflet-left .leaflet-control-attribution {
+  text-align: left !important;
+  margin-left: 0 !important;
+}
+
+/* Bottom-Right Box (Land Registry) - Align Right */
+.leaflet-right .leaflet-control-attribution {
+  text-align: right !important;
+  margin-right: 0 !important;
+}
+
+/* --- MOBILE ("Bloody Tiny" Mode) --- */
+@media (max-width: 640px) {
+  .leaflet-container .leaflet-control-attribution, 
+  .leaflet-container .leaflet-control-attribution a,
+  .legal-text {
+    font-size: 6px !important;
+    line-height: 8px !important;
+  }
+  
+  .leaflet-container .leaflet-control-attribution {
+    background: rgba(255, 255, 255, 0.2) !important; /* More transparent on mobile */
+    padding: 1px 3px !important;
+    max-width: 60vw; /* Prevent them from hitting each other */
+  }
+}
     }
   </style>
 </link></link></link></head>
